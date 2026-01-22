@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>oi！今天晚上玩不玩鹅鸭杀</title>
+  <style>
+    :root{
+      --bg1:#fff7c2;
+      --bg2:#ffd3e6;
+      --ink:#1f1f1f;
+      --card:#ffffffc8;
+      --line:#00000018;
+      --shadow: 0 14px 34px rgba(0,0,0,.12);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+        "PingFang SC","Noto Sans CJK SC","Microsoft YaHei", sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(900px 520px at 18% 12%, #ffffffcc 0%, transparent 55%),
+        radial-gradient(900px 520px at 82% 28%, #ffffffcc 0%, transparent 55%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      display:grid;
+      place-items:center;
+      padding:22px;
+    }
+
+    .wrap{
+      width:min(980px, 100%);
+      background: var(--card);
+      border:2px solid var(--line);
+      border-radius:28px;
+      box-shadow: var(--shadow);
+      padding:22px 18px 18px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    /* cute floating blobs */
+    .blob{
+      position:absolute;
+      width:260px;height:260px;
+      border-radius:999px;
+      filter: blur(2px);
+      opacity:.55;
+      pointer-events:none;
+      mix-blend-mode:multiply;
+    }
+    .b1{left:-90px;top:-90px;background:radial-gradient(circle at 30% 30%, #fff, #ffd1e8 55%, transparent 70%);}
+    .b2{right:-110px;bottom:-120px;background:radial-gradient(circle at 30% 30%, #fff, #cfe9ff 55%, transparent 70%);}
+
+    h1{
+      margin:0;
+      text-align:center;
+      font-weight: 1000;
+      letter-spacing:.5px;
+      font-size: clamp(28px, 4.2vw, 52px);
+      line-height:1.15;
+      text-shadow: 0 4px 0 rgba(255,255,255,.75);
+    }
+    .sub{
+      margin:10px 0 16px;
+      text-align:center;
+      font-size:13px;
+      color:#555;
+      opacity:.85;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+      gap:10px;
+      padding:14px;
+      border-radius:22px;
+      background: rgba(255,255,255,.65);
+      border:2px dashed var(--line);
+    }
+
+    .cell{
+      display:grid;
+      place-items:center;
+      height:44px;
+      border-radius:16px;
+      background: rgba(255,255,255,.8);
+      border:1px solid var(--line);
+      box-shadow: 0 8px 14px rgba(0,0,0,.06);
+      font-size: 26px;
+      transform: translateY(0);
+      transition: transform .12s ease;
+      user-select:none;
+    }
+    .cell:hover{ transform: translateY(-3px) rotate(-2deg); }
+
+    .duck{
+      outline: 3px solid rgba(255, 179, 0, .25);
+      box-shadow:
+        0 10px 18px rgba(0,0,0,.10),
+        0 0 0 6px rgba(255, 179, 0, .12);
+    }
+
+    .controls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:center;
+      margin-top:14px;
+    }
+    .pill{
+      display:inline-flex;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.75);
+      box-shadow: 0 10px 18px rgba(0,0,0,.06);
+      font-size:13px;
+      color:#444;
+    }
+    input[type="range"]{ width:180px; }
+    button{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.8);
+      padding:10px 14px;
+      border-radius:999px;
+      cursor:pointer;
+      box-shadow: 0 10px 18px rgba(0,0,0,.06);
+      font-weight:800;
+    }
+    button:hover{ filter: brightness(1.03); }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+
+    <h1>oi！今天晚上玩不玩鹅鸭杀</h1>
+    <div class="sub">在鹅群里找出几只鸭子（每次刷新随机混入）</div>
+
+    <div id="grid" class="grid" aria-label="鹅群与鸭子"></div>
+
+    <div class="controls">
+      <div class="pill">
+        鸭子比例：
+        <input id="duckRate" type="range" min="1" max="30" value="10" />
+        <span id="duckRateText">10%</span>
+      </div>
+      <div class="pill">
+        数量：
+        <input id="count" type="range" min="60" max="220" value="140" />
+        <span id="countText">140</span>
+      </div>
+      <button id="regen">重新混入 🪿🦆</button>
+    </div>
+  </div>
+
+  <script>
+    const grid = document.getElementById("grid");
+    const duckRate = document.getElementById("duckRate");
+    const duckRateText = document.getElementById("duckRateText");
+    const count = document.getElementById("count");
+    const countText = document.getElementById("countText");
+    const regen = document.getElementById("regen");
+
+    // Emoji choices (🪿 is goose; if your device can't display, it'll show as a blank box)
+    const GOOSE = "🪿";
+    const DUCK = "🦆";
+
+    function render(){
+      const rate = parseInt(duckRate.value, 10) / 100;
+      const n = parseInt(count.value, 10);
+
+      duckRateText.textContent = `${duckRate.value}%`;
+      countText.textContent = `${n}`;
+
+      grid.innerHTML = "";
+      for(let i=0;i<n;i++){
+        const isDuck = Math.random() < rate;
+        const d = document.createElement("div");
+        d.className = "cell" + (isDuck ? " duck" : "");
+        d.textContent = isDuck ? DUCK : GOOSE;
+        // tiny random wobble
+        d.style.transform = `rotate(${(Math.random()*6-3).toFixed(2)}deg)`;
+        d.addEventListener("mouseenter", ()=>{
+          d.style.transform = `translateY(-3px) rotate(${(Math.random()*8-4).toFixed(2)}deg)`;
+        });
+        d.addEventListener("mouseleave", ()=>{
+          d.style.transform = `rotate(${(Math.random()*6-3).toFixed(2)}deg)`;
+        });
+        grid.appendChild(d);
+      }
+    }
+
+    duckRate.addEventListener("input", render);
+    count.addEventListener("input", render);
+    regen.addEventListener("click", render);
+
+    render();
+  </script>
+</body>
+</html>
